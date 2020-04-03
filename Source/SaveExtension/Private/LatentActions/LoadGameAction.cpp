@@ -2,8 +2,9 @@
 
 #include "LatentActions/LoadGameAction.h"
 #include "SaveManager.h"
-#include "Serialization/SlotDataTask_Loader.h"
 #include "SlotInfo.h"
+
+#include "SlotDataTask_Loader.h"
 
 
 FLoadGameAction::FLoadGameAction(USaveManager* Manager, int32 SlotId, ELoadGameResult& OutResult, const FLatentActionInfo& LatentInfo)

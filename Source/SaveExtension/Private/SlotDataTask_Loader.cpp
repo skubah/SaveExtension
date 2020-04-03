@@ -1,13 +1,22 @@
 // Copyright 2015-2019 Piperift. All Rights Reserved.
 
-#include "Serialization/SlotDataTask_Loader.h"
+#include "SlotDataTask_Loader.h"
 
+#include <Kismet/GameplayStatics.h>
+#include <Engine/LocalPlayer.h>
+#include <GameFramework/GameModeBase.h>
+#include <GameFramework/GameStateBase.h>
+#include <GameFramework/PlayerController.h>
+#include <GameFramework/PlayerState.h>
+#include <GameFramework/HUD.h>
 #include <GameFramework/Character.h>
 #include <Serialization/MemoryReader.h>
+#include <Components/CapsuleComponent.h>
+#include <Kismet/GameplayStatics.h>
+#include <Components/PrimitiveComponent.h>
 
 #include "SavePreset.h"
 #include "SaveManager.h"
-#include "Serialization/SEArchive.h"
 
 
 /////////////////////////////////////////////////////
@@ -72,7 +81,7 @@ void USlotDataTask_Loader::OnFinish(bool bSuccess)
 
 	// Execute delegates
 	Delegate.ExecuteIfBound((bSuccess) ? NewSlotInfo : nullptr);
-	GetManager()->OnLoadFinished(Filter, !bSuccess);
+	GetManager()->OnLoadFinished(!bSuccess);
 }
 
 void USlotDataTask_Loader::BeginDestroy()
@@ -113,7 +122,7 @@ void USlotDataTask_Loader::StartDeserialization()
 		return;
 	}
 
-	Manager->OnLoadBegan(Filter);
+	Manager->OnLoadBegan();
 
 	//Apply current Info if succeeded
 	Manager->CurrentInfo = NewSlotInfo;
@@ -153,6 +162,23 @@ void USlotDataTask_Loader::BeforeDeserialize()
 
 	if (Preset->bStoreGameInstance)
 		DeserializeGameInstance();
+
+	if (Preset->bStoreGameMode)
+	{
+		DeserializeGameMode();
+		DeserializeGameState();
+
+		const TArray<ULocalPlayer*>& LocalPlayers = World->GetGameInstance()->GetLocalPlayers();
+		for (const auto* LocalPlayer : LocalPlayers)
+		{
+			int32 PlayerId = LocalPlayer->GetControllerId();
+
+			DeserializePlayerState(PlayerId);
+			DeserializePlayerController(PlayerId);
+			//DeserializePlayerPawn();
+			DeserializePlayerHUD(PlayerId);
+		}
+	}
 }
 
 void USlotDataTask_Loader::DeserializeSync()
@@ -264,7 +290,7 @@ void USlotDataTask_Loader::DeserializeASyncLoop(float StartMS)
 
 			const float CurrentMS = GetTimeMilliseconds();
 			// If x milliseconds passed, continue on next frame
-			if (CurrentMS - StartMS >= Filter.MaxFrameMs)
+			if (CurrentMS - StartMS >= MaxFrameMs)
 				return;
 		}
 	}
@@ -294,19 +320,28 @@ void USlotDataTask_Loader::PrepareLevel(const ULevel* Level, const FLevelRecord&
 	// Scene Actors not contained in loaded records  => Actors to be Destroyed
 	// The rest									     => Just deserialize
 
-	TArray<FActorRecord> ActorsToSpawn = LevelRecord.Actors;
+	TArray<FActorRecord>      ActorsToSpawn = LevelRecord.Actors;
+	TArray<FControllerRecord> AIsToSpawn    = LevelRecord.AIControllers;
 	TArray<AActor*> ActorsToDestroy{};
 	{
+		bool bIsAIController = false;
+		bool bIsLevelScript = false;
+
 		// O(M*Log(N))
 		for (auto ActorItr = Level->Actors.CreateConstIterator(); ActorItr; ++ActorItr)
 		{
 			AActor* const Actor{ *ActorItr };
-			if (Filter.ShouldSave(Actor))
+			if (ShouldSave(Actor))
 			{
 				// Remove records which actors do exist
-				const bool bFoundActorRecord = ActorsToSpawn.RemoveSingleSwap(Actor, false) > 0;
+				const bool bFoundAIRecord = AIsToSpawn.RemoveSingleSwap(Actor, false) > 0;
+				const bool bFoundActorRecord = !bFoundAIRecord && ActorsToSpawn.RemoveSingleSwap(Actor, false) > 0;
 
-				if (!bFoundActorRecord) // Don't destroy level actors
+				bIsLevelScript = false;
+				if (!bFoundAIRecord &&
+					!bFoundActorRecord &&
+					ShouldSaveAsWorld(Actor, bIsAIController, bIsLevelScript)
+					&& !bIsLevelScript) // Don't destroy level actors
 				{
 					// If the actor wasn't found, mark it for destruction
 					Actor->Destroy();
@@ -318,6 +353,7 @@ void USlotDataTask_Loader::PrepareLevel(const ULevel* Level, const FLevelRecord&
 
 	// Create Actors that doesn't exist now but were saved
 	RespawnActors(ActorsToSpawn, Level);
+	// #TODO: Respawn AIs
 }
 
 void USlotDataTask_Loader::FinishedDeserializing()
@@ -375,15 +411,127 @@ void USlotDataTask_Loader::DeserializeLevel_Actor(AActor* const Actor, const FLe
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_Loading_DeserializeLevel_Actor);
 
-	if (Filter.ShouldSave(Actor))
+	if (ShouldSave(Actor))
 	{
-		// Find the record
-		const FActorRecord* const Record = LevelRecord.Actors.FindByKey(Actor);
-		if (Record)
+		bool bIsAIController = false;
+		bool bIsLevelScript = false;
+		if (ShouldSaveAsWorld(Actor, bIsAIController, bIsLevelScript))
 		{
-			DeserializeActor(Actor, *Record);
+			if (bIsAIController)
+			{
+				if (AAIController* const AI = Cast<AAIController>(Actor))
+				{
+					DeserializeAI(AI, LevelRecord);
+				}
+			}
+			else if (bIsLevelScript)
+			{
+				if (ALevelScriptActor* const LevelScript = Cast<ALevelScriptActor>(Actor))
+				{
+					DeserializeLevelScript(LevelScript, LevelRecord);
+				}
+			}
+			else
+			{
+				// Find the record
+				const FActorRecord* const Record = LevelRecord.Actors.FindByKey(Actor);
+				if (Record)
+				{
+					DeserializeActor(Actor, *Record);
+				}
+			}
 		}
 	}
+}
+
+void USlotDataTask_Loader::DeserializeLevelScript(ALevelScriptActor* Level, const FLevelRecord& LevelRecord)
+{
+	if (Preset->bStoreLevelBlueprints)
+	{
+		check(Level);
+
+		// Find the record
+		const FActorRecord& Record = LevelRecord.LevelScript;
+
+		if (Record.IsValid())
+		{
+			const bool bSuccess = DeserializeActor(Level, Record);
+
+			SELog(Preset, "Level Blueprint '" + Record.Name.ToString() + "'", FColor::White, !bSuccess, 2);
+		}
+	}
+}
+
+void USlotDataTask_Loader::DeserializeAI(AAIController* AIController, const FLevelRecord& LevelRecord)
+{
+	if (Preset->bStoreAIControllers)
+	{
+		check(AIController);
+
+		// Find the record
+		const FActorRecord* Record = LevelRecord.AIControllers.FindByPredicate([AIController](const auto& Item) {
+			return AIController->GetFName() == Item.Name && AIController->GetClass() == Item.Class;
+		});
+
+		if (Record)
+		{
+			const bool bSuccess = DeserializeActor(AIController, *Record);
+
+			SELog(Preset, "AI Controller '" + Record->Name.ToString() + "'", FColor::White, !bSuccess, 2);
+		}
+	}
+}
+
+void USlotDataTask_Loader::DeserializeGameMode()
+{
+	const FActorRecord& Record = SlotData->GameMode;
+	const bool bSuccess = DeserializeActor(GetWorld()->GetAuthGameMode(), Record);
+
+	SELog(Preset, "Game Mode '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
+}
+
+void USlotDataTask_Loader::DeserializeGameState()
+{
+	auto* GameState = GetWorld()->GetGameState();
+
+	const FActorRecord& Record = SlotData->GameState;
+	const bool bSuccess = DeserializeActor(GameState, Record);
+
+	SELog(Preset, "Game State '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
+}
+
+void USlotDataTask_Loader::DeserializePlayerState(int32 PlayerId)
+{
+	const auto* Controller = UGameplayStatics::GetPlayerController(GetWorld(), PlayerId);
+	if (!Controller)
+		return;
+
+	const FActorRecord& Record = SlotData->PlayerState;
+	const bool bSuccess = DeserializeActor(Controller->PlayerState, Record);
+
+	SELog(Preset, "Player State '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
+}
+
+void USlotDataTask_Loader::DeserializePlayerController(int32 PlayerId)
+{
+	auto* Controller = UGameplayStatics::GetPlayerController(GetWorld(), PlayerId);
+
+	const FControllerRecord& Record = SlotData->PlayerController;
+	const bool bSuccess = DeserializeController(Controller, Record);
+
+	SELog(Preset, "Player Controller '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
+}
+
+void USlotDataTask_Loader::DeserializePlayerHUD(int32 PlayerId)
+{
+	const auto* Controller = UGameplayStatics::GetPlayerController(GetWorld(), PlayerId);
+	if (!Controller)
+		return;
+
+	const FActorRecord& Record = SlotData->PlayerHUD;
+	const bool bSuccess = DeserializeActor(Controller->MyHUD, Record);
+
+	SELog(Preset, "Player HUD '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
 }
 
 void USlotDataTask_Loader::DeserializeGameInstance()
@@ -399,18 +547,18 @@ void USlotDataTask_Loader::DeserializeGameInstance()
 	{
 		//Serialize from Record Data
 		FMemoryReader MemoryReader(Record.Data, true);
-		FSEArchive Archive(MemoryReader, false);
+		FSaveExtensionArchive Archive(MemoryReader, false);
 		GameInstance->Serialize(Archive);
 	}
 
-	SELog(Preset, "Game Instance '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
+	SELog(Preset, "Player Instance '" + Record.Name.ToString() + "'", FColor::Green, !bSuccess, 1);
 }
 
 bool USlotDataTask_Loader::DeserializeActor(AActor* Actor, const FActorRecord& Record)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_Loading_DeserializeActor);
 
-	if (!IsValid(Actor) || !Record.IsValid() || !Filter.ShouldSave(Actor) ||
+	if (!IsValid(Actor) || !Record.IsValid() || !ShouldSave(Actor) ||
 		Actor->GetClass() != Record.Class)
 	{
 		return false;
@@ -419,12 +567,21 @@ bool USlotDataTask_Loader::DeserializeActor(AActor* Actor, const FActorRecord& R
 	// Always load saved tags
 	Actor->Tags = Record.Tags;
 
-	const bool bSavesPhysics = Filter.StoresPhysics(Actor);
-	if (Filter.StoresTransform(Actor))
+	const bool bSavesPhysics = SavesPhysics(Actor);
+	if (SavesTransform(Actor))
 	{
 		Actor->SetActorTransform(Record.Transform);
 
-		if (Filter.StoresPhysics(Actor))
+		if (ACharacter* Character = Cast<ACharacter>(Actor))
+		{
+			UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+			if (Capsule)
+			{
+				Capsule->SetWorldRotation(SlotData->PlayerPawn.Transform.GetRotation());
+			}
+		}
+
+		if (SavesPhysics(Actor))
 		{
 			USceneComponent* Root = Actor->GetRootComponent();
 			if (auto* Primitive = Cast<UPrimitiveComponent>(Root))
@@ -447,16 +604,26 @@ bool USlotDataTask_Loader::DeserializeActor(AActor* Actor, const FActorRecord& R
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_Loading_DataReader);
 		//Serialize from Record Data
 		FMemoryReader MemoryReader(Record.Data, true);
-		FSEArchive Archive(MemoryReader, false);
+		FSaveExtensionArchive Archive(MemoryReader, false);
 		Actor->Serialize(Archive);
 	}
 
 	return true;
 }
 
+bool USlotDataTask_Loader::DeserializeController(AController* Actor, const FControllerRecord& Record)
+{
+	const bool bResult = DeserializeActor(Actor, Record);
+	if (bResult && Preset->bStoreControlRotation)
+	{
+		Actor->SetControlRotation(Record.ControlRotation);
+	}
+	return bResult;
+}
+
 void USlotDataTask_Loader::DeserializeActorComponents(AActor* Actor, const FActorRecord& ActorRecord, int8 Indent)
 {
-	if (Filter.bStoreComponents)
+	if (SavesComponents(Actor))
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_Loading_DeserializeActorComponents);
 
@@ -464,7 +631,7 @@ void USlotDataTask_Loader::DeserializeActorComponents(AActor* Actor, const FActo
 
 		for (auto* Component : Components)
 		{
-			if (Filter.ShouldSave(Component))
+			if (ShouldSave(Component))
 			{
 				// Find the record
 				const FComponentRecord* Record = ActorRecord.ComponentRecords.FindByKey(Component);
@@ -474,7 +641,7 @@ void USlotDataTask_Loader::DeserializeActorComponents(AActor* Actor, const FActo
 					continue;
 				}
 
-				if (Filter.StoresTransform(Component))
+				if (SavesTransform(Component))
 				{
 					USceneComponent* Scene = CastChecked<USceneComponent>(Component);
 					if (Scene->Mobility == EComponentMobility::Movable)
@@ -483,7 +650,7 @@ void USlotDataTask_Loader::DeserializeActorComponents(AActor* Actor, const FActo
 					}
 				}
 
-				if (Filter.StoresTags(Component))
+				if (SavesTags(Component))
 				{
 					Component->ComponentTags = Record->Tags;
 				}
@@ -491,7 +658,7 @@ void USlotDataTask_Loader::DeserializeActorComponents(AActor* Actor, const FActo
 				if (!Component->GetClass()->IsChildOf<UPrimitiveComponent>())
 				{
 					FMemoryReader MemoryReader(Record->Data, true);
-					FSEArchive Archive(MemoryReader, false);
+					FSaveExtensionArchive Archive(MemoryReader, false);
 					Component->Serialize(Archive);
 				}
 			}

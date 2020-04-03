@@ -7,12 +7,8 @@
 #include "Asset/AssetTypeAction_SlotInfo.h"
 #include "Asset/AssetTypeAction_SlotData.h"
 #include "Asset/AssetTypeAction_SavePreset.h"
-
+//#include "Customizations/SavePresetCustomization.h"
 #include "Customizations/SavePresetDetails.h"
-#include "Customizations/ClassFilterCustomization.h"
-#include "Customizations/ClassFilterGraphPanelPinFactory.h"
-#include "Customizations/ActorClassFilterCustomization.h"
-#include "Customizations/ComponentClassFilterCustomization.h"
 
 #define LOCTEXT_NAMESPACE "SaveExtensionEditor"
 
@@ -41,25 +37,13 @@ void FSaveExtensionEditor::StartupModule()
 void FSaveExtensionEditor::ShutdownModule()
 {
 	BlueprintEditorTabBinding = nullptr;
-
-	// Unregister all pin customizations
-	for (auto& FactoryPtr : CreatedPinFactories)
-	{
-		FEdGraphUtilities::UnregisterVisualPinFactory(FactoryPtr);
-	}
-	CreatedPinFactories.Empty();
 }
 
 void FSaveExtensionEditor::RegisterPropertyTypeCustomizations()
 {
 	RegisterCustomClassLayout("SavePreset", FOnGetDetailCustomizationInstance::CreateStatic(&FSavePresetDetails::MakeInstance));
 
-	RegisterCustomPropertyTypeLayout("ClassFilter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FClassFilterCustomization::MakeInstance));
-	RegisterCustomPropertyTypeLayout("ActorClassFilter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FActorClassFilterCustomization::MakeInstance));
-	RegisterCustomPropertyTypeLayout("ComponentClassFilter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FComponentClassFilterCustomization::MakeInstance));
 	//RegisterCustomPropertyTypeLayout("SavePreset", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FSavePresetCustomization::MakeInstance));
-
-	RegisterCustomPinFactory<FClassFilterGraphPanelPinFactory>();
 }
 
 void FSaveExtensionEditor::RegisterCustomClassLayout(FName ClassName, FOnGetDetailCustomizationInstance DetailLayoutDelegate)
@@ -80,12 +64,5 @@ void FSaveExtensionEditor::RegisterCustomPropertyTypeLayout(FName PropertyTypeNa
 	PropertyModule.RegisterCustomPropertyTypeLayout(PropertyTypeName, PropertyTypeLayoutDelegate);
 }
 
-template<class T>
-void FSaveExtensionEditor::RegisterCustomPinFactory()
-{
-	TSharedPtr<T> PinFactory = MakeShareable(new T());
-	FEdGraphUtilities::RegisterVisualPinFactory(PinFactory);
-	CreatedPinFactories.Add(PinFactory);
-}
-
 #undef LOCTEXT_NAMESPACE
+IMPLEMENT_MODULE(FSaveExtensionEditor, SaveExtensionEditor);

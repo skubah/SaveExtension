@@ -2,15 +2,17 @@
 
 #include "SaveManager.h"
 
-#include <EngineUtils.h>
-#include <Engine/GameViewportClient.h>
-#include <Engine/LevelStreaming.h>
+#include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/LevelStreaming.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/GameModeBase.h"
+#include "HighResScreenshot.h"
+#include "Misc/Paths.h"
+
 #include <GameDelegates.h>
-#include <GameFramework/GameModeBase.h>
-#include <HighResScreenshot.h>
-#include <Kismet/GameplayStatics.h>
 #include <Misc/CoreDelegates.h>
-#include <Misc/Paths.h>
 
 #include "FileAdapter.h"
 #include "Multithreading/LoadSlotInfoTask.h"
@@ -143,7 +145,7 @@ void USaveManager::BPSaveSlotToId(int32 SlotId, bool bScreenshot, const FScreens
 		Result = ESaveGameResult::Saving;
 
 		FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-		if (LatentActionManager.FindExistingAction<FSaveGameAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr)
+		if (LatentActionManager.FindExistingAction<FSaveGameAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
 		{
 			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FSaveGameAction(this, SlotId, bOverrideIfNeeded, bScreenshot, Size, Result, LatentInfo));
 		}
@@ -159,7 +161,7 @@ void USaveManager::BPLoadSlotFromId(int32 SlotId, ELoadGameResult& Result, struc
 		Result = ELoadGameResult::Loading;
 
 		FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-		if (LatentActionManager.FindExistingAction<FLoadGameAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr)
+		if (LatentActionManager.FindExistingAction<FLoadGameAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
 		{
 			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FLoadGameAction(this, SlotId, Result, LatentInfo));
 		}
@@ -173,7 +175,7 @@ void USaveManager::BPLoadAllSlotInfos(const bool bSortByRecent, TArray<USlotInfo
 	if (UWorld* World = GetWorld())
 	{
 		FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-		if (LatentActionManager.FindExistingAction<FLoadInfosAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr)
+		if (LatentActionManager.FindExistingAction<FLoadInfosAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
 		{
 			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FLoadInfosAction(this, bSortByRecent, SaveInfos, Result, LatentInfo));
 		}
@@ -186,7 +188,7 @@ void USaveManager::BPDeleteAllSlots(EDeleteSlotsResult& Result, struct FLatentAc
 	if (UWorld* World = GetWorld())
 	{
 		FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-		if (LatentActionManager.FindExistingAction<FDeleteSlotsAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr)
+		if (LatentActionManager.FindExistingAction<FDeleteSlotsAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
 		{
 			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FDeleteSlotsAction(this, Result, LatentInfo));
 		}
@@ -293,7 +295,7 @@ USlotData* USaveManager::LoadData(const USlotInfo* InSaveInfo) const
 USlotDataTask* USaveManager::CreateTask(TSubclassOf<USlotDataTask> TaskType)
 {
 	USlotDataTask* Task = NewObject<USlotDataTask>(this, TaskType.Get());
-	Task->Prepare(CurrentData, *GetPreset());
+	Task->Prepare(CurrentData, GetPreset());
 	Tasks.Add(Task);
 	return Task;
 }
@@ -333,33 +335,35 @@ void USaveManager::UnsubscribeFromEvents(const TScriptInterface<ISaveExtensionIn
 }
 
 
-void USaveManager::OnSaveBegan(const FSaveFilter& Filter)
+void USaveManager::OnSaveBegan()
 {
-	IterateSubscribedInterfaces([&Filter](auto* Object)
+	IterateSubscribedInterfaces([](auto* Object)
 	{
 		check(Object->template Implements<USaveExtensionInterface>());
 
 		// C++ event
 		if (ISaveExtensionInterface* Interface = Cast<ISaveExtensionInterface>(Object))
 		{
-			Interface->OnSaveBegan(Filter);
+			Interface->OnSaveBegan();
 		}
-		ISaveExtensionInterface::Execute_ReceiveOnSaveBegan(Object, Filter);
+
+		ISaveExtensionInterface::Execute_ReceiveOnSaveBegan(Object);
 	});
 }
 
-void USaveManager::OnSaveFinished(const FSaveFilter& Filter, const bool bError)
+void USaveManager::OnSaveFinished(const bool bError)
 {
-	IterateSubscribedInterfaces([&Filter, bError](auto* Object)
+	IterateSubscribedInterfaces([bError](auto* Object)
 	{
 		check(Object->template Implements<USaveExtensionInterface>());
 
 		// C++ event
 		if (ISaveExtensionInterface* Interface = Cast<ISaveExtensionInterface>(Object))
 		{
-			Interface->OnSaveFinished(Filter, bError);
+			Interface->OnSaveFinished(bError);
 		}
-		ISaveExtensionInterface::Execute_ReceiveOnSaveFinished(Object, Filter, bError);
+
+		ISaveExtensionInterface::Execute_ReceiveOnSaveFinished(Object, bError);
 	});
 
 	if (!bError)
@@ -368,33 +372,35 @@ void USaveManager::OnSaveFinished(const FSaveFilter& Filter, const bool bError)
 	}
 }
 
-void USaveManager::OnLoadBegan(const FSaveFilter& Filter)
+void USaveManager::OnLoadBegan()
 {
-	IterateSubscribedInterfaces([&Filter](auto* Object)
+	IterateSubscribedInterfaces([](auto* Object)
 	{
 		check(Object->template Implements<USaveExtensionInterface>());
 
 		// C++ event
 		if (ISaveExtensionInterface* Interface = Cast<ISaveExtensionInterface>(Object))
 		{
-			Interface->OnLoadBegan(Filter);
+			Interface->OnLoadBegan();
 		}
-		ISaveExtensionInterface::Execute_ReceiveOnLoadBegan(Object, Filter);
+
+		ISaveExtensionInterface::Execute_ReceiveOnLoadBegan(Object);
 	});
 }
 
-void USaveManager::OnLoadFinished(const FSaveFilter& Filter, const bool bError)
+void USaveManager::OnLoadFinished(const bool bError)
 {
-	IterateSubscribedInterfaces([&Filter, bError](auto* Object)
+	IterateSubscribedInterfaces([bError](auto* Object)
 	{
 		check(Object->template Implements<USaveExtensionInterface>());
 
 		// C++ event
 		if (ISaveExtensionInterface* Interface = Cast<ISaveExtensionInterface>(Object))
 		{
-			Interface->OnLoadFinished(Filter, bError);
+			Interface->OnLoadFinished(bError);
 		}
-		ISaveExtensionInterface::Execute_ReceiveOnLoadFinished(Object, Filter, bError);
+
+		ISaveExtensionInterface::Execute_ReceiveOnLoadFinished(Object, bError);
 	});
 
 	if (!bError)

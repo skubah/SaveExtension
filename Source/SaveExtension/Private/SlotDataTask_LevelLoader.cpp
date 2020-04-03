@@ -1,6 +1,6 @@
 // Copyright 2015-2019 Piperift. All Rights Reserved.
 
-#include "Serialization/SlotDataTask_LevelLoader.h"
+#include "SlotDataTask_LevelLoader.h"
 
 
 /////////////////////////////////////////////////////
@@ -46,7 +46,7 @@ void USlotDataTask_LevelLoader::DeserializeASyncLoop(float StartMS /*= 0.0f*/)
 
 			const float CurrentMS = GetTimeMilliseconds();
 			// If x milliseconds passed, continue on next frame
-			if (CurrentMS - StartMS >= Filter.MaxFrameMs)
+			if (CurrentMS - StartMS >= MaxFrameMs)
 				return;
 		}
 	}

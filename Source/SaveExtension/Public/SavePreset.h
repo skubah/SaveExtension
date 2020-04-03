@@ -3,10 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
 #include "UObject/NoExportTypes.h"
 
-#include "Misc/ClassFilter.h"
+#include "Engine/DataAsset.h"
 #include "SavePreset.generated.h"
 
 
@@ -84,40 +83,41 @@ public:
 	bool bDebugInScreen;
 
 
+	/* This Actor classes and their childs will be ignored while saving or loading */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, AdvancedDisplay)
+	TArray<TSubclassOf<AActor>> IgnoredActors;
+
+	/** If true will store the current gamemode  */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
+	bool bStoreGameMode;
+
+	/** If true will store the game instance */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
+	bool bStoreGameInstance;
+
+	/** If true will store all Level Blueprints */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
+	bool bStoreLevelBlueprints;
+
+	/** If true will store AI Controllers */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
+	bool bStoreAIControllers;
+
+	/** If true will store Actor Components
+	 * NOTE: StaticMeshComponents and SkeletalMeshComponents are not serialized
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
+	bool bStoreComponents;
+
+	/** If true will store player's control rotation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Controllers", Config)
+	bool bStoreControlRotation;
 
 	/** If true save files will be compressed
 	 * Performance: Can add from 10ms to 20ms to loading and saving (estimate) but reduce file sizes making them up to 30x smaller
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
 	bool bUseCompression;
-
-	/** If true will store the game instance */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Serialization, Config)
-	bool bStoreGameInstance;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Actors", Config)
-	FActorClassFilter ActorFilter;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Actors", Config, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	bool bUseLoadActorFilter;
-
-	/** If enabled, this filter will be used while loading instead of "ActorFilter" */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Actors", Config, meta = (EditCondition="bUseLoadActorFilter"))
-	FActorClassFilter LoadActorFilter;
-
-	/** If true will store ActorComponents depending on the filters */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Components", Config)
-	bool bStoreComponents;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Components", Config)
-	FComponentClassFilter ComponentFilter;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Components", Config, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	bool bUseLoadComponentFilter;
-
-	/** If enabled, this filter will be used while loading instead of "ComponentFilter" */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Serialization|Components", Config, meta = (EditCondition = "bUseLoadComponentFilter"))
-	FComponentClassFilter LoadComponentFilter;
 
 protected:
 
@@ -161,23 +161,6 @@ public:
 		return MaxSlots <= 0 ? 16384 : MaxSlots;
 	}
 
-	UFUNCTION(BlueprintPure, Category = SavePreset)
-	FORCEINLINE FActorClassFilter& GetActorFilter(bool bIsLoading) {
-		return (bIsLoading && bUseLoadActorFilter)? LoadActorFilter : ActorFilter;
-	}
-
-	FORCEINLINE const FActorClassFilter& GetActorFilter(bool bIsLoading) const {
-		return (bIsLoading && bUseLoadActorFilter)? LoadActorFilter : ActorFilter;
-	}
-
-	UFUNCTION(BlueprintPure, Category = SavePreset)
-	FORCEINLINE FComponentClassFilter& GetComponentFilter(bool bIsLoading) {
-		return (bIsLoading && bUseLoadComponentFilter) ? LoadComponentFilter : ComponentFilter;
-	}
-
-	FORCEINLINE const FComponentClassFilter& GetComponentFilter(bool bIsLoading) const {
-		return (bIsLoading && bUseLoadActorFilter) ? LoadComponentFilter : ComponentFilter;
-	}
 
 	FORCEINLINE bool IsMTSerializationLoad() const {
 		return MultithreadedSerialization == ESaveASyncMode::LoadAsync || MultithreadedSerialization == ESaveASyncMode::SaveAndLoadAsync;

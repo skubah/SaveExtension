@@ -45,8 +45,7 @@ public:
 
 private:
 
-	void UnBind()
-	{
+	void UnBind() {
 		if (LevelStreaming.IsValid())
 		{
 			ULevelStreaming* Level = LevelStreaming.Get();
@@ -58,8 +57,7 @@ private:
 		}
 	}
 
-	virtual void BeginDestroy() override
-	{
+	virtual void BeginDestroy() override {
 		UnBind();
 		Super::BeginDestroy();
 	}

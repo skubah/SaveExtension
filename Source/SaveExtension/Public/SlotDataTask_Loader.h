@@ -9,6 +9,7 @@
 #include <GameFramework/Actor.h>
 #include <Engine/LevelScriptActor.h>
 #include <GameFramework/Controller.h>
+#include <AIController.h>
 
 #include "SavePreset.h"
 #include "SlotInfo.h"
@@ -121,12 +122,45 @@ protected:
 
 private:
 
+	/** Deserializes a Level Blueprint Actor */
+	void DeserializeLevelScript(ALevelScriptActor* Level, const FLevelRecord& LevelRecord);
+
+	/** Deserializes an AI Controller Actor */
+	void DeserializeAI(AAIController* AIController, const FLevelRecord& LevelRecord);
+
+	/** Deserializes Game Mode Actor and its Properties.
+	Requires 'SaveGameMode' flag to be used. */
+	void DeserializeGameMode();
+
+	/** Deserializes Game State Actor and its Properties.
+	Requires 'SaveGameMode' flag to be used. */
+	void DeserializeGameState();
+
+	/** Deserializes Player State Actor and its Properties.
+	Requires 'SaveGameMode' flag to be used. */
+	void DeserializePlayerState(int32 PlayerId);
+
+	/** Deserializes Player Controller Actor and its Properties.
+	Requires 'SaveGameMode' flag to be used. */
+	void DeserializePlayerController(int32 PlayerId);
+
+	/** Deserializes Player HUD Actor and its Properties.
+	Requires 'SaveGameMode' flag to be used. */
+	void DeserializePlayerHUD(int32 PlayerId);
+
+	/** Deserializes Current Player's Pawn and its Properties.
+	Requires 'SaveGameMode' flag to be used. */
+	//void DeserializePlayerPawn(int32 PlayerId);
+
 	/** Deserializes Game Instance Object and its Properties.
 	Requires 'SaveGameMode' flag to be used. */
 	void DeserializeGameInstance();
 
 	/** Serializes an actor into this Actor Record */
 	bool DeserializeActor(AActor* Actor, const FActorRecord& Record);
+
+	/** Deserializes an actor into this Controller Record */
+	bool DeserializeController(AController* Actor, const FControllerRecord& Record);
 
 	/** Deserializes the components of an actor from a provided Record */
 	void DeserializeActorComponents(AActor* Actor, const FActorRecord& ActorRecord, int8 indent = 0);

@@ -1,7 +1,7 @@
 // Copyright 2015-2019 Piperift. All Rights Reserved.
 
 #include "LifetimeComponent.h"
-#include "Serialization/MTTask.h"
+#include "SlotDataTask.h"
 
 
 ULifetimeComponent::ULifetimeComponent()
@@ -39,24 +39,22 @@ void ULifetimeComponent::EndPlay(EEndPlayReason::Type Reason)
 		{
 			Finish.Broadcast();
 		}
-
-		Manager->UnsubscribeFromEvents(this);
 	}
 
 	Super::EndPlay(Reason);
 }
 
-void ULifetimeComponent::OnSaveBegan(const FSaveFilter& Filter)
+void ULifetimeComponent::OnSaveBegan()
 {
-	if (Filter.ShouldSave(GetOwner()))
+	if (USlotDataTask::ShouldSave(GetOwner()))
 	{
 		Saved.Broadcast();
 	}
 }
 
-void ULifetimeComponent::OnLoadFinished(const FSaveFilter& Filter, bool bError)
+void ULifetimeComponent::OnLoadFinished(bool bError)
 {
-	if (Filter.ShouldSave(GetOwner()))
+	if (USlotDataTask::ShouldSave(GetOwner()))
 	{
 		Resume.Broadcast();
 	}

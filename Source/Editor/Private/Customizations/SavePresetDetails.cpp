@@ -55,7 +55,7 @@ void FSavePresetDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 				]
 			];
 
-			Category.AddProperty(TEXT("MaxFrameMs")).EditCondition({ this, &FSavePresetDetails::CanEditAsynchronous }, nullptr);
+			Category.AddProperty(TEXT("MaxFrameMs")).EditCondition({ this, &FSavePresetDetails::CanEditAsynchronous }, NULL);
 		}
 
 		DetailBuilder.EditCategory(TEXT("Level Streaming"));
