@@ -1,0 +1,23 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.SaveExtensionEditor.cpp.obj": [
+			"AssetTypeAction_SavePreset.cpp.obj",
+			"AssetTypeAction_SlotData.cpp.obj",
+			"AssetTypeAction_SlotInfo.cpp.obj",
+			"SavePresetFactory.cpp.obj",
+			"SlotDataFactory.cpp.obj",
+			"SlotInfoFactory.cpp.obj",
+			"SavePresetDetails.cpp.obj",
+			"SaveActorEditorTabSummoner.cpp.obj",
+			"SaveExtensionEditor.cpp.obj",
+			"SSaveActorSettingsItem.cpp.obj"
+		],
+		"Module.SaveExtensionEditor.gen.cpp.obj": [
+			"SaveExtensionEditor.init.gen.cpp.obj",
+			"SavePresetFactory.gen.cpp.obj",
+			"SlotDataFactory.gen.cpp.obj",
+			"SlotInfoFactory.gen.cpp.obj"
+		]
+	}
+}

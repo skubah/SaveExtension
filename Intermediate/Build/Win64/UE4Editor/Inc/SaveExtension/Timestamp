@@ -1,0 +1,17 @@
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\LatentActions\DeleteSlotsAction.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\LatentActions\LoadGameAction.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\LatentActions\LoadInfosAction.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\LatentActions\SaveGameAction.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\LevelStreamingNotifier.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\LifetimeComponent.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SaveExtensionInterface.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SavePreset.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotData.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SaveManager.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotDataTask_LevelLoader.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotDataTask.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotDataTask_LevelSaver.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotInfo.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotDataTask_Loader.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Public\SlotDataTask_Saver.h
+G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Source\SaveExtension\Private\SaveExtensionLibrary.h

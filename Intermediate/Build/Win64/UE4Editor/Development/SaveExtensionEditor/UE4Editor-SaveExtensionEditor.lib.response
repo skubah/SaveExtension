@@ -1,0 +1,14 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UE4Editor-SaveExtensionEditor.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"G:\UnrealProjects\PluginBuilder\Intermediate\Build\Win64\PluginBuilderEditor\Development\UnrealEd\SharedPCH.UnrealEd.ShadowErrors.h.obj"
+"G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Intermediate\Build\Win64\UE4Editor\Development\SaveExtensionEditor\Module.SaveExtensionEditor.cpp.obj"
+"G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Intermediate\Build\Win64\UE4Editor\Development\SaveExtensionEditor\Module.SaveExtensionEditor.gen.cpp.obj"
+"G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Intermediate\Build\Win64\UE4Editor\Development\SaveExtensionEditor\Default.rc2.res"
+/OUT:"G:\UnrealProjects\PluginBuilder\Plugins\SaveExtension\Intermediate\Build\Win64\UE4Editor\Development\SaveExtensionEditor\UE4Editor-SaveExtensionEditor.lib"
+/INCLUDE:IMPLEMENT_MODULE_SaveExtensionEditor
